@@ -12,6 +12,7 @@
 - `python3 main.py --game [game name] --model [model name]`
     - [game name] : BreakoutDeterministic, Seaquest, etc. default : BreakoutDeterministic
     - [model name] : dqn, a3c etc. default : dqn
+- 자세한 설정은 main.py 에서 조정할 수 있습니다.
 
 ## Contents
 - Value Based Reinforcement Learning
@@ -19,17 +20,15 @@
     - [Double DQN](./utils/valuebase_utils.py)
     - [Dueling DQN](dqn.py)
     - [DRQN](drqn.py)
-    - [DRQN with training initial state](drqn.py)
 - Policy Based Reinforcement Learning
     - [A3C](a3c.py)
 - To be added
     - Value Based RL
+        - DARQN
         - Asynchronous n-step Q-learning
     - Policy Based RL
         - PG, DPG, DDPG
         - NPG, TRPO, GAE, PPO
-    - with Visual Attention Mechanism
-        - DARQN (DRQN with Visaul Attention)
 
 ## References
 - Studies
