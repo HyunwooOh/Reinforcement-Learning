@@ -11,7 +11,7 @@
 ## How to use
 - `python3 main.py --game [game name] --model [model name]`
     - [game name] : BreakoutDeterministic, Seaquest, etc. default : BreakoutDeterministic
-    - [model name] : DQN, A3C etc. default : DQN
+    - [model name] : dqn, a3c etc. default : dqn
 
 ## Contents
 - Value Based Reinforcement Learning
