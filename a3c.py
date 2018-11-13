@@ -46,7 +46,6 @@ class ActorCritic():
                 self.entropy = tf.reduce_sum(self.entropy) #()
 
                 self.loss = 0.5 * self.critic_loss - self.actor_loss + Config.ENTROPY_BETA * self.entropy #()
-                #self.loss = tf.reduce_sum(self.loss_)
 
                 self.local_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope)
                 self.local_gradients = tf.gradients(self.loss, self.local_params)
@@ -55,60 +54,14 @@ class ActorCritic():
                 self.apply_grads = self.optimizer.apply_gradients(zip(self.local_gradients, self.global_params))
                 self.optimize = self.apply_grads
 
-class ActorCritic2():
-    def __init__(self, action_size, scope):
-        print("make two loss", scope)
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=Config.ADAM_LEARNING_RATE)
-        self.action_size = action_size
-        with tf.variable_scope(scope):
-            self.input = tf.placeholder(tf.float32, [None, Config.IMAGE_HEIGHT, Config.IMAGE_WIDTH, Config.NUM_FRAME])
-            with tf.variable_scope("actor"):
-                self.conv1 = layers.conv2d(self.input, 16, 8, 4, padding='VALID')
-                self.conv2 = layers.conv2d(self.conv1, 32, 4, 2, padding='VALID')
-                self.conv_flat = layers.flatten(self.conv2)
-                self.fc = layers.fully_connected(self.conv_flat, 256)
-                self.policy = layers.fully_connected(self.fc, self.action_size, activation_fn=tf.nn.softmax)
-            with tf.variable_scope("critic"):
-                self.conv1 = layers.conv2d(self.input, 16, 8, 4, padding='VALID')
-                self.conv2 = layers.conv2d(self.conv1, 32, 4, 2, padding='VALID')
-                self.conv_flat = layers.flatten(self.conv2)
-                self.fc = layers.fully_connected(self.conv_flat, 256)
-                self.value = layers.fully_connected(self.fc, 1, activation_fn=None)
-            if scope != 'global':
-                self.actions = tf.placeholder(tf.int32, [None, ])
-                self.action_onehot = tf.one_hot(self.actions, self.action_size, axis=1)  # (?, 3)
-                self.discounted_R = tf.placeholder(tf.float32, [None, 1])
-
-                self.critic_loss = tf.square(self.discounted_R - self.value) #(?, 1)
-                self.critic_loss = tf.reduce_sum(self.critic_loss)
-                self.selected_action_prob = tf.reduce_sum(self.policy*self.action_onehot, axis=1, keep_dims = True) #(?, 1)
-                self.log_pi = tf.log(tf.maximum(self.selected_action_prob, Config.LOG_EPSILON))  # (?, 1)
-                self.actor_loss_ = self.log_pi * (self.discounted_R - tf.stop_gradient(self.value)) #(?, 1)
-                self.entropy = tf.reduce_sum(self.policy * tf.log(tf.maximum(self.policy, Config.LOG_EPSILON)), axis=1, keep_dims=True) #(?, 1)
-                self.actor_loss = -tf.reduce_sum(self.actor_loss_ - Config.ENTROPY_BETA * self.entropy)
-
-                self.local_critic_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope+"/critic")
-                self.local_critic_grad = tf.gradients(self.critic_loss, self.local_critic_params)
-                self.local_critic_grad, _ = tf.clip_by_global_norm(self.local_critic_grad, Config.GRAD_CLIP_NORM)
-                self.global_critic_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "global/critic")
-                self.apply_critic_grads = self.optimizer.apply_gradients(zip(self.local_critic_grad, self.global_critic_params))
-
-                self.local_actor_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope+"/actor")
-                self.local_actor_grad = tf.gradients(self.actor_loss, self.local_actor_params)
-                self.local_actor_grad, _ = tf.clip_by_global_norm(self.local_actor_grad, Config.GRAD_CLIP_NORM)
-                self.global_actor_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "global/actor")
-                self.apply_actor_grads = self.optimizer.apply_gradients(zip(self.local_actor_grad, self.global_actor_params))
-
-                self.optimize = [self.apply_critic_grads, self.apply_actor_grads]
-
 class Worker(threading.Thread):
-    def __init__(self, name, sess, action_size, game, ACNet, start_time, summary_ops, report_name):
+    def __init__(self, name, sess, action_size, game, ActorCritic, start_time, summary_ops, report_name):
         threading.Thread.__init__(self)
         self.name = name
         self.sess = sess
         self.action_size = action_size
         self.game = game
-        self.local_AC = ACNet(action_size, name)
+        self.local_AC = ActorCritic(action_size, name)
         self.start_time = start_time
         [self.summary_op, self.summary_placeholders, self.update_ops, self.summary_writer] = summary_ops
         self.report_name = report_name
@@ -202,48 +155,15 @@ def train(args):
     env.reset()
     start_time = time.time()
     action_size = env.action_space.n
-    if args.num_loss == 1:    A3C_Net = ActorCritic
-    else: A3C_Net = ActorCritic2
     if args.game == "BreakoutDeterministic": action_size = 3
     sess = tf.Session()
     summary_placeholders, update_ops, summary_op = setup_summary(["Total Reward/Episode", "Average_Max_Prob/Episode"])
     summary_writer = tf.summary.FileWriter('summary/a3c/'+args.game+'/', sess.graph)
     summary_ops = [summary_op, summary_placeholders, update_ops, summary_writer]
     with tf.device("/cpu:0"):
-        global_AC = A3C_Net(action_size, "global")
-        workers = [Worker("Worker_%i"%i, sess, action_size, args.game, A3C_Net, start_time, summary_ops, args.report_path+args.report_file_name) for i in range(args.num_cpu)]
+        global_AC = ActorCritic(action_size, "global")
+        workers = [Worker("Worker_%i"%i, sess, action_size, args.game, ActorCritic, start_time, summary_ops, args.report_path+args.report_file_name) for i in range(args.num_cpu)]
     sess.run(tf.global_variables_initializer())
     for worker in workers:
         time.sleep(1)
         worker.start()
-
-def main():
-    import argparse
-    import multiprocessing
-    from utils.common_utils import make_path
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default='dqn', type = str)
-    ##############################################
-    parser.add_argument("--game", default='BreakoutDeterministic', type = str)
-    parser.add_argument("--num_frame", default=4, type=int)
-    ################  Policy Based  ################
-    parser.add_argument("--num_loss", default=1, type=int)
-    parser.add_argument("--num_cpu", default=8, type=int)
-    parser.add_argument("--all_cpu", type=str)
-    ###############  Common Arguments  ###############
-    parser.add_argument("--report_path", type = str)
-    parser.add_argument("--model_path", type = str)
-    parser.add_argument("--report_file_name", type = str)
-    args = parser.parse_args()
-    ##############################################
-    if args.all_cpu == "True": args.num_cpu = multiprocessing.cpu_count()
-    args.report_file_name = args.game + "_" + args.model + ".txt"
-    args.report_path = "./report/"
-    args.model_path = "./model/"+args.game+"/"
-    make_path(args.report_path)
-    make_path(args.model_path)
-    train(args)
-
-if __name__ == "__main__":
-    main()
