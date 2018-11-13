@@ -5,7 +5,7 @@ from utils.common_utils import make_path
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default='a3c', type = str, help="dqn, dqn_VA, drqn, a3c, a3c_VA")
+    parser.add_argument("--model", default='a3c', type = str, help="dqn, drqn, a3c")
     ##############################################
     parser.add_argument("--game", default='BreakoutDeterministic', type = str)
     ################  Visual Attention  ################
