@@ -1,32 +1,25 @@
 import argparse
 import multiprocessing
-import dqn, drqn, a3c
+import dqn, dqn_VA, drqn, a3c, a3c_VA
 from utils.common_utils import make_path
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default='a3c', type = str)
+    parser.add_argument("--model", default='a3c', type = str, help="dqn, dqn_VA, drqn, a3c, a3c_VA")
     ##############################################
     parser.add_argument("--game", default='BreakoutDeterministic', type = str)
-    parser.add_argument("--num_frame", default=4, type=int)
+    ################  Visual Attention  ################
+    parser.add_argument("--tis", default='False', type = str)
     ################  Value Based  ################
     parser.add_argument("--double", default='False', type = str)
     parser.add_argument("--dueling", default='False', type = str)
-    parser.add_argument("--batch_size", default=32, type=int)
-    parser.add_argument("--train_start", default=50000, type = int)
-    parser.add_argument("--train_end", default=5000000, type = int)
-    parser.add_argument("--target_update_rate", default=10000, type = int)
-    parser.add_argument("--memory_size", default=500000, type = int)
-    parser.add_argument("--epsilon_start", default=1., type=float)
-    parser.add_argument("--epsilon_end", default=0.01, type=float)
-    parser.add_argument("--epsilon_exploration", default=1000000, type=float)
     ###########  DRQN  ###########
     parser.add_argument("--drqn_skill", default='norm', type = str, help="norm, doom")
     ################  Policy Based  ################
-    parser.add_argument("--num_loss", default=1, type=int)
     parser.add_argument("--num_cpu", default=8, type=int)
     parser.add_argument("--all_cpu", type=str)
     ###############  Common Arguments  ###############
+    parser.add_argument("--train_time", default=24, type=int)
     parser.add_argument("--report_path", type = str)
     parser.add_argument("--model_path", type = str)
     parser.add_argument("--report_file_name", type = str)
@@ -40,9 +33,12 @@ def main():
     make_path(args.model_path)
 
     if args.model == 'dqn': dqn.train(args)
+    if args.model == 'dqn_VA': dqn_VA.train(args)
     if args.model == 'drqn':
         if args.drqn_skill != 'mine' : drqn.train(args)
     if args.model == 'a3c': a3c.train(args)
+    if args.model == 'a3c_VA': a3c_VA.train(args)
+
 
 if __name__ == "__main__":
     main()

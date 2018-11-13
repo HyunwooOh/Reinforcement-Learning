@@ -3,9 +3,13 @@ import tensorflow as tf
 from skimage.color import rgb2gray
 from skimage.transform import resize
 import os
+from utils.Config import Config
 
-def input_image(X, num_frame):
-    return np.reshape(np.float32(X/255.), [-1, 84, 84, num_frame])
+def tf_log(X):
+    return tf.log(tf.maximum(X, Config.LOG_EPSILON))
+
+def input_image(X):
+    return np.reshape(np.float32(X/255.), [-1, Config.IMAGE_HEIGHT, Config.IMAGE_WIDTH, Config.NUM_FRAME])
 
 def check_life(env):
     env.reset()
@@ -14,37 +18,21 @@ def check_life(env):
     return int(info['ale.lives'])
 
 def pre_proc(X):
-    x = np.uint8(resize(rgb2gray(X), (84, 84), mode='constant') * 255)
+    x = np.uint8(resize(rgb2gray(X), (Config.IMAGE_HEIGHT, Config.IMAGE_WIDTH), mode='constant') * 255)
     return x
 
 def pre_proc_scalar(X):
-    x = np.uint8(resize(rgb2gray(X), (84, 84), mode='constant') * 255)
-    return np.reshape(x, [84*84])
+    x = np.uint8(resize(rgb2gray(X), (Config.IMAGE_HEIGHT, Config.IMAGE_WIDTH), mode='constant') * 255)
+    return np.reshape(x, [Config.IMAGE_HEIGHT*Config.IMAGE_WIDTH])
 
-def get_copy_var_ops_hard2(*, from_scope, to_scope):
+def get_copy_var_ops_hard(*, from_scope, to_scope):
     op_holder = []
-    from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=from_scope)
-    to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=to_scope)
+    from_vars = tf.trainable_variables(from_scope)
+    to_vars = tf.trainable_variables(to_scope)
     for from_var, to_var in zip(from_vars, to_vars):
         op_holder.append(to_var.assign(from_var.value()))
     return op_holder
-def get_copy_var_ops_hard(from_scope, to_scope):
-    """
-    Create operations to mirror the values from all trainable variables in from_scope to to_scope.
-    """
-    from_tvs = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=from_scope)
-    to_tvs = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=to_scope)
 
-    from_dict = {var.name: var for var in from_tvs}
-    to_dict = {var.name: var for var in to_tvs}
-    copy_ops = []
-    for to_name, to_var in to_dict.items():
-        from_name = to_name.replace(to_scope, from_scope)
-        from_var = from_dict[from_name]
-        op = to_var.assign(from_var.value())
-        copy_ops.append(op)
-
-    return copy_ops
 def get_copy_var_ops_soft(tfVars,tau):
     total_vars = len(tfVars)
     op_holder = []
