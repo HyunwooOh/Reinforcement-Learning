@@ -1,6 +1,6 @@
 import argparse
 import multiprocessing
-import dqn, dqn_VA, drqn, a3c, a3c_VA
+import dqn, drqn, a3c
 from utils.common_utils import make_path
 
 def main():
