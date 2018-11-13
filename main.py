@@ -34,11 +34,9 @@ def main():
     make_path(args.model_path)
 
     if args.model == 'dqn': dqn.train(args)
-    if args.model == 'dqn_VA': dqn_VA.train(args)
     if args.model == 'drqn':
         if args.drqn_skill != 'mine' : drqn.train(args)
     if args.model == 'a3c': a3c.train(args)
-    if args.model == 'a3c_VA': a3c_VA.train(args)
 
 
 if __name__ == "__main__":
