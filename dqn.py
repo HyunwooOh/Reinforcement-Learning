@@ -5,17 +5,18 @@ import tensorflow as tf
 import tensorflow.contrib.layers as layers
 from collections import deque
 import time
+from utils.Config import Config
 from utils.valuebase_utils import epsilon_greedy_policy, train_dqn, train_double_dqn
 from utils.common_utils import input_image, pre_proc, get_copy_var_ops_hard
 from utils.common_utils import check_life, cal_time, setup_summary
 
 class DQN():
-    def __init__(self, args, action_size, num_frame, scope):
+    def __init__(self, args, action_size, scope):
         #self.optimizer = tf.train.RMSPropOptimizer(2.5e-4, decay=0.99, epsilon=0.01)
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=Config.ADAM_LEARNING_RATE)
         with tf.variable_scope(scope):
             self.batch_size = tf.placeholder(tf.float32, ())
-            self.input = tf.placeholder(tf.float32, [None, 84, 84, num_frame])
+            self.input = tf.placeholder(tf.float32, [None, Config.IMAGE_HEIGHT, Config.IMAGE_WIDTH, Config.NUM_FRAME])
             self.conv1 = layers.conv2d(self.input, 32, 8, 4, 'VALID')
             self.conv2 = layers.conv2d(self.conv1, 64, 4, 2, 'VALID')
             self.conv3 = layers.conv2d(self.conv2, 64, 3, 1, 'VALID')
@@ -48,17 +49,17 @@ def train(args):
     with tf.Session(config=config) as sess:
         ############################
         summary_placeholders, update_ops, summary_op = setup_summary(["Average_Max_Q/Episode", "Total Reward/Episode"])
-        summary_writer = tf.summary.FileWriter('summary/dqn/', sess.graph)
+        summary_writer = tf.summary.FileWriter('summary/dqn/'+args.game+"/", sess.graph)
         ############################
-        main = DQN(args, ACTION_SIZE, args.num_frame, "main")
-        target = DQN(args, ACTION_SIZE, args.num_frame, "target")
+        main = DQN(args, ACTION_SIZE, "main")
+        target = DQN(args, ACTION_SIZE, "target")
         if args.double == "True": train_model = train_double_dqn
         else: train_model = train_dqn
         sess.run(tf.global_variables_initializer())
         update_target_network = get_copy_var_ops_hard(from_scope="main", to_scope="target")
         sess.run(update_target_network)
         epoch, global_step = 1, 0
-        memory = deque(maxlen=args.memory_size)
+        memory = deque(maxlen=Config.MEMORY_SIZE)
         for episode in range(999999999):
             done, dead = False, False
             step, score, start_life = 0, 0, check_life(env)
@@ -67,23 +68,22 @@ def train(args):
             observe = env.reset()
             for _ in range(random.randint(1, 30)):
                 observe, _, _, _ = env.step(1)
-            state = np.reshape(pre_proc(observe), [1, 84, 84, 1])
+            state = np.reshape(pre_proc(observe), [1, Config.IMAGE_HEIGHT, Config.IMAGE_WIDTH, 1])
             history = state
-            for _ in range(args.num_frame):
+            for _ in range(Config.NUM_FRAME):
                 history = np.concatenate((history, state), axis=3)
             while not done:
                 step+=1
                 global_step += 1
                 ############## choose action ##############
-                Q = sess.run(main.Qout, feed_dict = {main.input:input_image(history[:,:,:,:args.num_frame], args.num_frame)})
-
+                Q = sess.run(main.Qout, feed_dict = {main.input:input_image(history[:,:,:,:Config.NUM_FRAME])})
                 avg_q_max += np.amax(Q, axis = 1)
                 action = epsilon_greedy_policy(epsilon, ACTION_SIZE, Q)
                 ################ next step ################
                 next_observe, reward, done, info = env.step(action)
                 ###########################################
                 score += reward
-                history[:, :, :, args.num_frame] = pre_proc(next_observe)
+                history[:, :, :, Config.NUM_FRAME] = pre_proc(next_observe)
                 if start_life > info['ale.lives']:
                     dead = True
                     start_life = info['ale.lives']
@@ -91,12 +91,12 @@ def train(args):
                 ############ append experiment ############
                 memory.append((np.copy(history), action, reward, dead))
                 if dead: dead = False
-                else: history[:, :, :, :args.num_frame] = history[:, :, :, 1:]
+                else: history[:, :, :, :Config.NUM_FRAME] = history[:, :, :, 1:]
                 ############### train model ###############
-                if global_step > args.train_start:
-                    if epsilon > args.epsilon_end: epsilon -= (args.epsilon_start-args.epsilon_end)/args.epsilon_exploration
-                    train_model(args, sess, main, target, memory)
-                    if global_step % args.target_update_rate == 0: sess.run(update_target_network)
+                if global_step > Config.TRAIN_START:
+                    if epsilon > Config.EPSILON_END: epsilon -= (Config.EPSILON_START-Config.EPSILON_END)/Config.EPSILON_EXPLORATION
+                    train_model(sess, main, target, memory)
+                    if global_step % Config.TARGET_UPDATE_RATE == 0: sess.run(update_target_network)
                 ################ terminated ################
                 if done:
                     now_time = time.time()

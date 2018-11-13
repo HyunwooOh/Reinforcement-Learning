@@ -16,6 +16,7 @@ def main():
     ###########  DRQN  ###########
     parser.add_argument("--drqn_skill", default='norm', type = str, help="norm, doom")
     ################  Policy Based  ################
+    parser.add_argument("--num_loss", default=1, type=int)
     parser.add_argument("--num_cpu", default=8, type=int)
     parser.add_argument("--all_cpu", type=str)
     ###############  Common Arguments  ###############
