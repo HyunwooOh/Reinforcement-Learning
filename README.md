@@ -12,7 +12,7 @@
 - `python3 main.py --game [game name] --model [model name]`
     - [game name] : BreakoutDeterministic, Seaquest, etc. default : BreakoutDeterministic
     - [model name] : dqn, a3c etc. default : dqn
-- 자세한 설정은 main.py 에서 조정할 수 있습니다.
+- 자세한 설정은 [main.py](main.py), [Config.py](./utils/Config.py) 에서 조정할 수 있습니다.
 
 ## Contents
 - Value Based Reinforcement Learning
@@ -40,3 +40,4 @@
     - [Asynchronous Methods for Deep Reinforcement Learning](http://proceedings.mlr.press/v48/mniha16.pdf)
 - Github repositories
     - https://gist.github.com/awjuliani/35d2ab3409fc818011b6519f0f1629df
+    - https://github.com/openai/universe-starter-agent/blob/293904f01b4180ecf92dd9536284548108074a44/a3c.py
