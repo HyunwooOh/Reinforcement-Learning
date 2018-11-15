@@ -29,21 +29,18 @@ class ActorCritic():
             self.conv_flat = layers.flatten(self.conv2)
             self.fc = layers.fully_connected(self.conv_flat, 256)
             self.policy = layers.fully_connected(self.fc, self.action_size, activation_fn=tf.nn.softmax)
-            self.value = layers.fully_connected(self.fc, 1, activation_fn=None)
+            self.value_ = layers.fully_connected(self.fc, 1, activation_fn=None)
+            self.value = tf.reshape(self.value_, [-1])
             if scope != 'global':
-                self.actions = tf.placeholder(tf.int32, [None, ])
+                self.actions = tf.placeholder(tf.int32, [None])
                 self.action_onehot = tf.one_hot(self.actions, self.action_size, axis=1)  # (?, 3)
-                self.discounted_R = tf.placeholder(tf.float32, [None, 1])
+                self.discounted_R = tf.placeholder(tf.float32, [None])
 
-                self.critic_loss = tf.square(self.discounted_R - self.value) #(?, 1)
-                self.critic_loss = tf.reduce_sum(self.critic_loss) #()
-
-                self.selected_action_prob = tf.reduce_sum(self.policy*self.action_onehot, axis=1, keep_dims = True) #(?, 1)
-                self.log_pi = tf.log(tf.maximum(self.selected_action_prob, Config.LOG_EPSILON))  # (?, 1)
-                self.actor_loss = self.log_pi * (self.discounted_R - tf.stop_gradient(self.value)) #(?, 1)
-                self.actor_loss = tf.reduce_sum(self.actor_loss) #()
-                self.entropy = tf.reduce_sum(self.policy * tf.log(tf.maximum(self.policy, Config.LOG_EPSILON)), axis=1, keep_dims=True) #(?, 1)
-                self.entropy = tf.reduce_sum(self.entropy) #()
+                self.critic_loss = tf.reduce_sum(tf.square(self.discounted_R - self.value)) #(?) -> ()
+                self.selected_action_prob = tf.reduce_sum(self.policy*self.action_onehot, axis=1) #(?)
+                self.log_pi = tf.log(tf.maximum(self.selected_action_prob, Config.LOG_EPSILON))  # (?)
+                self.actor_loss = tf.reduce_sum(self.log_pi * (self.discounted_R - tf.stop_gradient(self.value))) #(?) -> ()
+                self.entropy = tf.reduce_sum(tf.reduce_sum(self.policy * tf.log(tf.maximum(self.policy, Config.LOG_EPSILON)), axis=1)) #(?, 3) -> (?) -> ()
 
                 self.loss = 0.5 * self.critic_loss - self.actor_loss + Config.ENTROPY_BETA * self.entropy #()
 
@@ -68,7 +65,7 @@ class Worker(threading.Thread):
         self.update_local_network = get_copy_var_ops_hard(from_scope="global", to_scope=name)
         self.histories, self.actions, self.rewards= [], [], []
         self.avg_p_max = 0
-        self.t_max = 5
+        self.t_max = Config.T_MAX
         self.t = 0
 
     def run(self):

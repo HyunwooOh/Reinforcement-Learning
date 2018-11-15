@@ -7,7 +7,7 @@ class Config:
     LOG_EPSILON = 1e-10
 
     ################  OPTIMIZER  ################
-    ADAM_LEARNING_RATE = 0.0001
+    ADAM_LEARNING_RATE = 1e-3
     RMS_LEARNING_RATE = 1e-3
     RMSPROP_DECAY = 0.99
     RMSPROP_MOMENTUM = 0.0
