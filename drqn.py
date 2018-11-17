@@ -124,7 +124,7 @@ def train(args):
                         f_epi.close()
                 if global_steps > Config.TRAIN_START:
                     if epsilon > Config.EPSILON_END: epsilon -= (Config.EPSILON_START-Config.EPSILON_END)/Config.EPSILON_EXPLORATION
-                    if global_steps % Config.TARGET_UPDATE_RATE:
+                    if global_steps % Config.TARGET_UPDATE_RATE == 0:
                         for op in targetOps: sess.run(op)
                     train_model(sess, main, target, myBuffer)
             bufferArray = np.array(episode_buffer)
