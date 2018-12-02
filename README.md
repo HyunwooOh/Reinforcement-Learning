@@ -1,6 +1,6 @@
 # Reinforcement Learning
 - Tensorflow implementations of Reinforcement Learning methods for Atari 2600.
-- 강화학습의 유명한 알고리즘들을 구현한 저장소입니다.
+- 강화학습의 유명한 알고리즘들을 구현했습니다.
 - Atari 2600 를 대상으로 실험할 수 있습니다.
 
 ## Requirements
@@ -13,6 +13,8 @@
     - [game name] : BreakoutDeterministic, Seaquest, etc. default : BreakoutDeterministic
     - [model name] : dqn, a3c etc. default : dqn
 - 자세한 설정은 [main.py](main.py), [Config.py](./utils/Config.py) 에서 조정할 수 있습니다.
+- [dqn.py](dqn.py), [drqn.py](drqn.py)는 네트워크 클래스와 아타리에서의 학습을 할 수 있는 메소드로 이루어져 있습니다.
+- [a3c.py](a3c.py)는 네트워크 클래스와 아타리에서 학습을 진행하는 Worker 클래스, global 네트워크와 worker를 설정하고 학습을 시작하는 메소드로 이루어져 있습니다.
 
 ## Contents
 - Value Based Reinforcement Learning
@@ -23,25 +25,13 @@
 - Policy Based Reinforcement Learning
     - [A3C](a3c.py)
 - To be added
-    - Value Based RL
-        - DARQN
-        - Asynchronous n-step Q-learning
-    - Policy Based RL
-        - PG, DPG, DDPG
-        - NPG, TRPO, GAE, PPO
+    - DARQN
+    - Asynchronous n-step Q-learning
+    - PG, DPG, DDPG
+    - NPG, TRPO, GAE, PPO
 
 ## Note
-### A3C's loss function
-- I implemented Actor and Critic not as separated networks but as one network.
-- To do this, i combined Actor's loss and Critic's loss together into one loss function.
-- I found mainly two types of total loss function.
-- [A3C논문](http://proceedings.mlr.press/v48/mniha16.pdf)에서 Actor와 Critic을 별개의 네트워크로 분리시켰습니다.
-- 다른 분들의 코드를 보면 Actor와 Critic을 하나의 네트워크로 구성했습니다. 이를 위해 Actor의 손실함수와 Critic의 손실함수를 하나의 손실함수로 표현해야 합니다. 주로 두가지 형태를 찾을 수 있었습니다.
-    - total_loss = 0.5 * critic_loss - actor_loss + 0.01 * entropy
-    - total_loss = 0.5 * 0.5 * critic_loss - actor_loss + 0.01 * entropy
-    - <img src= "/assets/a3c_loss_experiment.png" width="100%" height="100%">
-    - BreakoutDeterministic-v4 에서 실험한 결과 0.5 * 0.5 * critic_loss 가 더 좋은 성능이 나왔습니다.
-- [A3C를 스타크래프2에 사용한 논문](https://arxiv.org/pdf/1708.04782.pdf)의 4.1장에 그와 관련된 내용이 있습니다.
+- [NOTE.md](NOTE.md) 에 비고사항을 기록했습니다.
 
 ## References
 - Studies
@@ -54,6 +44,5 @@
 - Github repositories
     - https://gist.github.com/awjuliani/35d2ab3409fc818011b6519f0f1629df
     - https://github.com/openai/universe-starter-agent/blob/293904f01b4180ecf92dd9536284548108074a44/a3c.py
-    - https://gist.github.com/jcwleo/fffc40f69b7f14d9e2a2b8765a79b579#file-dqn_breakout-py
     - https://github.com/rlcode/reinforcement-learning-kr
     
