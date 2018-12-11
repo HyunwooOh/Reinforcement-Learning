@@ -23,20 +23,21 @@ class DQN():
             self.conv_flat = layers.flatten(self.conv3)
             if args.dueling == 'True':
                 self.streamV, self.streamA = tf.split(self.conv_flat, 2, 1)
-                self.value = layers.fully_connected(self.streamV, 1)
-                self.advantage = layers.fully_connected(self.streamA, action_size)
+                self.AW = tf.Variable(tf.random_normal([512 // 2, action_size]))
+                self.VW = tf.Variable(tf.random_normal([512 // 2, 1]))
+                self.advantage = tf.matmul(self.streamA, self.AW)
+                self.value = tf.matmul(self.streamV, self.VW)
                 self.Qout = self.value + tf.subtract(self.advantage, tf.reduce_mean(self.advantage, axis=1, keep_dims=True))
             else:
                 self.fc = layers.fully_connected(self.conv_flat, 512)
-                self.Qout = tf.contrib.layers.fully_connected(self.fc, action_size, activation_fn=None) # (?, 4)
+                self.Qout = layers.fully_connected(self.fc, action_size, activation_fn=None) # (?, 4)
             self.targetQ = tf.placeholder(tf.float32, shape=[None])
             self.actions = tf.placeholder(tf.int32, shape=[None])
             self.action_onehot = tf.one_hot(self.actions, action_size, dtype=tf.float32)  # (?, 4)
             self.Q = tf.reduce_sum(tf.multiply(self.Qout, self.action_onehot), axis=1) # (?, )
             self.td_err = tf.square(self.targetQ-self.Q)
             self.loss = tf.reduce_mean(self.td_err)
-            self.trainModel =self.optimizer.minimize(self.loss)
-            self.optimize = self.trainModel
+            self.optimize =self.optimizer.minimize(self.loss)
 
 def train(args):
     env = gym.make(args.game+"-v4")
@@ -49,7 +50,7 @@ def train(args):
     with tf.Session(config=config) as sess:
         ############################
         summary_placeholders, update_ops, summary_op = setup_summary(["Average_Max_Q/Episode", "Total Reward/Episode"])
-        summary_writer = tf.summary.FileWriter('summary/dqn/'+args.game+"/", sess.graph)
+        summary_writer = tf.summary.FileWriter('summary/'+args.game+"/dqn/", sess.graph)
         ############################
         main = DQN(args, ACTION_SIZE, "main")
         target = DQN(args, ACTION_SIZE, "target")
