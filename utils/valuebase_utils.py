@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from utils.common_utils import input_image
+from utils.common_utils import input_image, input_image_drqn
 from utils.Config import Config
 
 ##############################
@@ -32,62 +32,46 @@ def train_double_dqn(sess, main, target, memory):
     rewards = np.array([x[2] for x in minibatch])
     next_histories = np.vstack([x[0][:, :, :, 1:] for x in minibatch])
     deads = np.array([x[3] for x in minibatch])
-    Q1 = np.argmax(sess.run(main.Qout, feed_dict={main.input:input_image(next_histories, Config.NUM_FRAME), main.batch_size:Config.BATCH_SIZE}), 1)
-    Q2 = sess.run(target.Qout, feed_dict={target.input:input_image(next_histories, Config.NUM_FRAME), target.batch_size:Config.BATCH_SIZE})
+    Q1 = np.argmax(sess.run(main.Qout, feed_dict={main.input:input_image(next_histories), main.batch_size:Config.BATCH_SIZE}), 1)
+    Q2 = sess.run(target.Qout, feed_dict={target.input:input_image(next_histories), target.batch_size:Config.BATCH_SIZE})
     doubleQ = Q2[range(Config.BATCH_SIZE), Q1]
     targetQ = rewards + 0.99 * doubleQ * ~deads
-    sess.run(main.optimize, feed_dict={main.input:input_image(histories, Config.NUM_FRAME), main.batch_size:Config.BATCH_SIZE, main.targetQ:targetQ, main.actions:actions})
+    sess.run(main.optimize, feed_dict={main.input:input_image(histories), main.batch_size:Config.BATCH_SIZE, main.targetQ:targetQ, main.actions:actions})
 
 ################################
 ########### For DRQN ###########
 ################################
-class experience_buffer_drqn():
-    def __init__(self, buffer_size=1000):
-        self.buffer = []
-        self.buffer_size = buffer_size
+def drqn_sampling(memory):
+    sampled_episodes = random.sample(memory, Config.DRQN_BATCH_SIZE)
+    sampled_traces = []
+    for episode in sampled_episodes:
+        point = np.random.randint(0, len(episode) + 1 - Config.UNROLLING_TIME_STEPS)
+        sampled_traces.append(episode[point:point + Config.UNROLLING_TIME_STEPS])
+    sampled_traces = np.array(sampled_traces)
+    return np.reshape(sampled_traces, [Config.DRQN_BATCH_SIZE * Config.UNROLLING_TIME_STEPS, 5])
 
-    def add(self, experience):
-        if len(self.buffer) + 1 >= self.buffer_size:
-            self.buffer[0:(1 + len(self.buffer)) - self.buffer_size] = []
-        self.buffer.append(experience)
-
-    def sample(self, batch_size, unrolling_time_steps):
-        sampled_episodes = random.sample(self.buffer, batch_size)
-        sampledTraces = []
-        for episode in sampled_episodes:
-            point = np.random.randint(0, len(episode) + 1 - unrolling_time_steps)
-            sampledTraces.append(episode[point:point + unrolling_time_steps])
-        sampledTraces = np.array(sampledTraces)
-        return np.reshape(sampledTraces, [batch_size * unrolling_time_steps, 5])
-
-def train_drqn(sess, main, target, myBuffer):
+def train_drqn(sess, main, target, memory):
+    minibatch = drqn_sampling(memory)
+    states = np.vstack([x[0] for x in minibatch])
+    actions = np.array([x[1] for x in minibatch])
+    rewards = np.array([x[2] for x in minibatch])
+    next_states = np.vstack([x[3] for x in minibatch])
+    deads = np.array([x[4] for x in minibatch])
     state_train = (np.zeros([Config.DRQN_BATCH_SIZE, Config.DRQN_HSIZE]), np.zeros([Config.DRQN_BATCH_SIZE, Config.DRQN_HSIZE]))
-    mini_batch = myBuffer.sample(Config.DRQN_BATCH_SIZE, Config.UNROLLING_TIME_STEPS)
-    Q2 = sess.run(target.Qout, feed_dict={target.scalarInput: np.vstack(mini_batch[:, 3] / 255.0),
-                                          target.unrolling_time_steps: Config.UNROLLING_TIME_STEPS,
-                                          target.state_in: state_train, target.batch_size: Config.DRQN_BATCH_SIZE})
-    end_multiplier = -(mini_batch[:, 4] - 1)
-    targetQ = mini_batch[:, 2] + (0.99 * np.max(Q2, axis=1) * end_multiplier)
+    Q = sess.run(target.Qout, feed_dict = {target.input: input_image_drqn(next_states), target.batch_size: Config.DRQN_BATCH_SIZE, target.unrolling_time_steps: Config.UNROLLING_TIME_STEPS, target.state_in: state_train})
+    targetQ = rewards + 0.99 * np.max(Q, axis=1) * ~deads
+    sess.run(main.optimize, feed_dict={main.input: input_image_drqn(states), main.batch_size: Config.DRQN_BATCH_SIZE, main.unrolling_time_steps: Config.UNROLLING_TIME_STEPS, main.state_in: state_train, main.targetQ: targetQ, main.actions: actions})
 
-    sess.run(main.updateModel, feed_dict={main.scalarInput: np.vstack(mini_batch[:, 0] / 255.0), main.targetQ: targetQ,
-                                          main.actions: mini_batch[:, 1],
-                                          main.unrolling_time_steps: Config.UNROLLING_TIME_STEPS,
-                                          main.state_in: state_train, main.batch_size: Config.DRQN_BATCH_SIZE})
-
-def train_double_drqn(sess, main, target, myBuffer):
+def train_double_drqn(sess, main, target, memory):
+    minibatch = drqn_sampling(memory)
+    states = np.vstack([x[0] for x in minibatch])
+    actions = np.array([x[1] for x in minibatch])
+    rewards = np.array([x[2] for x in minibatch])
+    next_states = np.vstack([x[3] for x in minibatch])
+    deads = np.array([x[4] for x in minibatch])
     state_train = (np.zeros([Config.DRQN_BATCH_SIZE, Config.DRQN_HSIZE]), np.zeros([Config.DRQN_BATCH_SIZE, Config.DRQN_HSIZE]))
-    mini_batch = myBuffer.sample(Config.DRQN_BATCH_SIZE, Config.UNROLLING_TIME_STEPS)
-    Q1 = sess.run(main.predict, feed_dict={main.scalarInput: np.vstack(mini_batch[:, 3] / 255.0),
-                                           main.unrolling_time_steps: Config.UNROLLING_TIME_STEPS,
-                                           main.state_in: state_train, main.batch_size: Config.DRQN_BATCH_SIZE})
-    Q2 = sess.run(target.Qout, feed_dict={target.scalarInput: np.vstack(mini_batch[:, 3] / 255.0),
-                                          target.unrolling_time_steps: Config.UNROLLING_TIME_STEPS,
-                                          target.state_in: state_train, target.batch_size: Config.DRQN_BATCH_SIZE})
-    end_multiplier = -(mini_batch[:, 4] - 1)
+    Q1 = np.argmax(sess.run(main.Qout, feed_dict={main.input: input_image_drqn(next_states), main.batch_size: Config.DRQN_BATCH_SIZE, main.unrolling_time_steps: Config.UNROLLING_TIME_STEPS, main.state_in: state_train}), 1)
+    Q2 = sess.run(target.Qout, feed_dict = {target.input: input_image_drqn(next_states), target.batch_size: Config.DRQN_BATCH_SIZE, target.unrolling_time_steps: Config.UNROLLING_TIME_STEPS, target.state_in: state_train})
     doubleQ = Q2[range(Config.DRQN_BATCH_SIZE * Config.UNROLLING_TIME_STEPS), Q1]
-    targetQ = mini_batch[:, 2] + (0.99 * doubleQ * end_multiplier)
-
-    sess.run(main.updateModel, feed_dict={main.scalarInput: np.vstack(mini_batch[:, 0] / 255.0), main.targetQ: targetQ,
-                                          main.actions: mini_batch[:, 1],
-                                          main.unrolling_time_steps: Config.UNROLLING_TIME_STEPS,
-                                          main.state_in: state_train, main.batch_size: Config.DRQN_BATCH_SIZE})
+    targetQ = rewards + 0.99 * doubleQ * ~deads
+    sess.run(main.optimize, feed_dict={main.input: input_image_drqn(states), main.batch_size: Config.DRQN_BATCH_SIZE, main.unrolling_time_steps: Config.UNROLLING_TIME_STEPS, main.state_in: state_train, main.targetQ: targetQ, main.actions: actions})
